@@ -1342,7 +1342,7 @@ pub fn calculate_scale(
         return fallback_scale;
     }
 
-    let diag = (w_in.powf(2.) * h_in.powf(2.)).sqrt();
+    let diag = (w_in.powf(2.) + h_in.powf(2.)).sqrt();
     let dpi = (w_px as f64 / w_in + h_px as f64 / h_in) / 2.0;
 
     match diag {
@@ -1390,6 +1390,39 @@ pub fn scale_from_dpi(dpi: f64, step_size: u32, shorter_px: u16) -> f64 {
 #[cfg(test)]
 mod test {
     use super::{calculate_scale, connector::Interface};
+
+    #[test]
+    fn test_small_panel_scale() {
+        for interface in [
+            Interface::EmbeddedDisplayPort,
+            Interface::LVDS,
+            Interface::DSI,
+            Interface::DisplayPort,
+            Interface::HDMIA,
+        ] {
+            assert_eq!(
+                calculate_scale(interface, (344, 215), (2880, 1800)),
+                1.5,
+                "{interface:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_desktop_below_tv_diagonal() {
+        for interface in [Interface::DisplayPort, Interface::HDMIA, Interface::HDMIB] {
+            assert_eq!(
+                calculate_scale(interface, (885, 498), (2560, 1440)),
+                1.0,
+                "{interface:?}"
+            );
+            assert_eq!(
+                calculate_scale(interface, (886, 498), (2560, 1440)),
+                2.0,
+                "{interface:?}"
+            );
+        }
+    }
 
     #[test]
     fn test_scale() {
@@ -1460,7 +1493,8 @@ mod test {
         // TVs
         for &iface in &[Interface::DisplayPort, Interface::HDMIA, Interface::HDMIB] {
             // Various sizes 16:9
-            for &diag_in in &[40.0, 42.0, 48.0, 55.0, 65.0, 77.0, 83.0] {
+            // El truncamiento a milímetros no debe dejar el panel por debajo de 40 pulgadas.
+            for &diag_in in &[40.1, 42.0, 48.0, 55.0, 65.0, 77.0, 83.0] {
                 assert_eq!(scale(iface, diag_in, 1920, 1080), 100);
                 assert_eq!(scale(iface, diag_in, 2560, 1440), 200);
                 assert_eq!(scale(iface, diag_in, 3840, 2160), 200);
